@@ -1,0 +1,40 @@
+name: Compilar para Appetize
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  compilar:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar la app para el simulador de iPhone
+        run: |
+          PROYECTO=$(find . -maxdepth 3 -name "*.xcodeproj" | head -1)
+          if [ -z "$PROYECTO" ]; then
+            echo "No encontre ningun archivo .xcodeproj en el repositorio"
+            exit 1
+          fi
+          echo "Proyecto encontrado: $PROYECTO"
+          cd "$(dirname "$PROYECTO")"
+          xcodebuild -project "$(basename "$PROYECTO")" \
+            -target SantosLaguna \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            ARCHS="x86_64 arm64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SYMROOT="$GITHUB_WORKSPACE/build" \
+            build
+
+      - name: Comprimir la app en zip
+        run: |
+          cd "$GITHUB_WORKSPACE/build/Debug-iphonesimulator"
+          ditto -c -k --sequesterRsrc --keepParent SantosLaguna.app "$GITHUB_WORKSPACE/SantosLaguna.zip"
+
+      - name: Subir el zip para descargarlo
+        uses: actions/upload-artifact@v4
+        with:
+          name: SantosLaguna-para-Appetize
+          path: SantosLaguna.zip
